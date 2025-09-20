@@ -1,7 +1,19 @@
 package db
 
-import "fmt"
+import model "MessasingApp/models"
 
-func Mine() {
-	fmt.Print("Hey")
+var users = make(map[string]model.User)
+
+func UserExists(username string) bool {
+	_, ok := users[username]
+	return ok
+}
+
+func SaveUser(u model.User) {
+	users[u.Username] = u
+}
+
+func GetUser(username string) (model.User, bool) {
+	u, ok := users[username]
+	return u, ok
 }
