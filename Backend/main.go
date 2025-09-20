@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"messaging-app/handlers"
+	"MessasingApp/Backend/handlers"
 )
 
 func main() {

@@ -1,6 +1,6 @@
 package db
 
-import model "MessasingApp/models"
+import model "MessasingApp/Backend/models"
 
 var users = make(map[string]model.User)
 

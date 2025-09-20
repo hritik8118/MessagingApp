@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"MessagingApp/Backend/auth"
-	"MessagingApp/Backend/db"
-	"MessagingApp/Backend/models"
+	"MessasingApp/Backend/auth"
+	"MessasingApp/Backend/db"
+	"MessasingApp/Backend/models"
 )
 
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
