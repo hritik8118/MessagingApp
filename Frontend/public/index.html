@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Messaging App</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    #messages { border: 1px solid #ccc; height: 200px; overflow-y: scroll; margin-bottom: 1em; padding: 0.5em; }
+    #login, #register, #chat { margin-bottom: 2em; }
+    input, button { margin: 0.2em; }
+  </style>
+</head>
+<body>
+  <h1>Simple Messaging App</h1>
+  <div id="register">
+    <h2>Register</h2>
+    <input id="reg-username" placeholder="Username">
+    <input id="reg-password" type="password" placeholder="Password">
+    <button onclick="register()">Register</button>
+  </div>
+  <div id="login">
+    <h2>Login</h2>
+    <input id="login-username" placeholder="Username">
+    <input id="login-password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+  <div id="chat" style="display:none;">
+    <h2>Chat</h2>
+    <div id="messages"></div>
+    <input id="receiver" placeholder="Receiver">
+    <input id="message" placeholder="Message">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+  <script>
+    let token = null;
+    let ws = null;
+    function register() {
+      fetch('http://localhost:8080/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('reg-username').value,
+          password: document.getElementById('reg-password').value
+        })
+      }).then(r => {
+        if (r.ok) alert('Registered! Please login.');
+        else alert('Registration failed.');
+      });
+    }
+    function login() {
+      fetch('http://localhost:8080/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('login-username').value,
+          password: document.getElementById('login-password').value
+        })
+      }).then(r => r.json()).then(data => {
+        if (data.token) {
+          token = data.token;
+          document.getElementById('login').style.display = 'none';
+          document.getElementById('register').style.display = 'none';
+          document.getElementById('chat').style.display = '';
+          connectWS();
+        } else {
+          alert('Login failed.');
+        }
+      });
+    }
+    function connectWS() {
+      ws = new WebSocket('ws://localhost:8080/chat/ws?token=' + token);
+      ws.onmessage = function(event) {
+        const msg = JSON.parse(event.data);
+        const div = document.createElement('div');
+        div.textContent = msg.sender + ': ' + msg.content;
+        document.getElementById('messages').appendChild(div);
+      };
+      ws.onclose = function() {
+        alert('WebSocket closed');
+      };
+    }
+    function sendMessage() {
+      const receiver = document.getElementById('receiver').value;
+      const content = document.getElementById('message').value;
+      ws.send(JSON.stringify({ receiver, content }));
+      document.getElementById('message').value = '';
+    }
+  </script>
+</body>
+</html>
