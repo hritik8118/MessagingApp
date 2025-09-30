@@ -1,0 +1,13 @@
+# Node and frontend
+node_modules/
+build/
+dist/
+
+# OS and editor
+.DS_Store
+*.log
+.env
+*.env
+*.swp
+*.swo
+Thumbs.db
