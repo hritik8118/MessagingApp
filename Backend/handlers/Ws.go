@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"MessasingApp/Backend/auth"
+	"MessasingApp/Backend/db"
+	"MessasingApp/Backend/models"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -11,46 +16,33 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-var clients = make(map[*websocket.Conn]bool)
-var broadcast = make(chan Message)
-
-type Message struct {
-	From    string `json:"from"`
-	To      string `json:"to"`
-	Content string `json:"content"`
-}
-
-func WsHandler(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
+func WebSocketHandler(c *gin.Context) {
+	token := c.Query("token")
+	fmt.Println("WebSocket token received:", token)
+	username, err := auth.ValidateJWT(token)
 	if err != nil {
-		fmt.Println("WebSocket upgrade error:", err)
+		fmt.Println("JWT validation failed in WebSocketHandler:", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
-	defer ws.Close()
 
-	clients[ws] = true
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket upgrade failed"})
+		return
+	}
+	defer conn.Close()
 
 	for {
-		var msg Message
-		err := ws.ReadJSON(&msg)
+		var msg models.Message
+		err := conn.ReadJSON(&msg)
 		if err != nil {
-			fmt.Println("Error reading msg:", err)
-			delete(clients, ws)
 			break
 		}
-		broadcast <- msg
-	}
-}
-
-func init() {
-	go handleMessages()
-}
-
-func handleMessages() {
-	for {
-		msg := <-broadcast
-		for client := range clients {
-			client.WriteJSON(msg)
-		}
+		msg.ID = time.Now().Format("20060102150405")
+		msg.Sender = username
+		msg.Timestamp = time.Now().Unix()
+		db.AddMessage(msg)
+		conn.WriteJSON(msg)
 	}
 }

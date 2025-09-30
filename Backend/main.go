@@ -1,19 +1,23 @@
-// !! om namah bhagwate vasudevay !!
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
-
+	"MessasingApp/Backend/auth"
 	"MessasingApp/Backend/handlers"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	http.HandleFunc("/signup", handlers.SignupHandler)
-	http.HandleFunc("/login", handlers.LoginHandler)
-	http.HandleFunc("/ws", handlers.WsHandler)
+	r := gin.Default()
+	r.Use(cors.Default())
 
-	fmt.Println("🚀 Server running at :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	r.POST("/register", handlers.RegisterHandler)
+	r.POST("/login", handlers.LoginHandler)
+
+	authGroup := r.Group("/chat")
+	authGroup.Use(auth.JWTAuthMiddleware())
+	authGroup.GET("/ws", handlers.WebSocketHandler)
+
+	r.Run(":8080")
 }

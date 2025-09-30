@@ -1,47 +1,64 @@
 package handlers
 
 import (
-	"encoding/json"
-	"net/http"
-	"time"
-
 	"MessasingApp/Backend/auth"
 	"MessasingApp/Backend/db"
 	"MessasingApp/Backend/models"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
-func SignupHandler(w http.ResponseWriter, r *http.Request) {
-	var u models.User
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+func RegisterHandler(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
-	if db.UserExists(u.Username) {
-		http.Error(w, "User already exists", http.StatusConflict)
+	if db.UserExists(req.Username) {
+		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
 	}
 
-	u.CreatedAt = time.Now()
-	db.SaveUser(u)
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error hashing password"})
+		return
+	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Signup successful"})
+	user := models.User{
+		Username:     req.Username,
+		PasswordHash: hash,
+	}
+	db.AddUser(user)
+	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var creds models.User
-	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+func LoginHandler(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
-	user, ok := db.GetUser(creds.Username)
-	if !ok || user.Password != creds.Password {
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+	user, exists := db.GetUser(req.Username)
+	if !exists || !auth.CheckPasswordHash(req.Password, user.PasswordHash) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
-	token, _ := auth.GenerateJWT(user.Username)
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	token, err := auth.GenerateJWT(user.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
